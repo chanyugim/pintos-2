@@ -86,6 +86,7 @@ palloc_get_multiple(enum palloc_flags flags, size_t page_cnt)
         return NULL;
 
     lock_acquire(&pool->lock);
+    set_bit_palloc_mode(pool->used_map, palloc_mode);
     page_idx = bitmap_scan_and_flip(pool->used_map, 0, page_cnt, false);
     lock_release(&pool->lock);
 

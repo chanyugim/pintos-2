@@ -28,5 +28,4 @@ enum palloc_mode {
     PAL_BUDDY
 };
 void palloc_set_mode(enum palloc_mode mode);
-
 #endif /* threads/palloc.h */
