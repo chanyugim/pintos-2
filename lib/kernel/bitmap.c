@@ -24,10 +24,17 @@ typedef unsigned long elem_type;
 /* From the outside, a bitmap is an array of bits.  From the
    inside, it's an array of elem_type (defined above) that
    simulates an array of bits. */
+
 struct bitmap {
     size_t bit_cnt;  /* Number of bits. */
     elem_type *bits; /* Elements that represent bits. */
+    size_t palloc_mode;
+    size_t next_fit_start;
 };
+
+void set_bit_palloc_mode(struct bitmap *b, size_t mode) {
+        b->palloc_mode = mode;
+}
 
 /* Returns the index of the element that contains the bit
    numbered BIT_IDX. */
@@ -81,6 +88,8 @@ bitmap_create(size_t bit_cnt)
     if (b != NULL) {
         b->bit_cnt = bit_cnt;
         b->bits = malloc(byte_cnt(bit_cnt));
+	b->palloc_mode = 0;
+	b->next_fit_start = 0;
         if (b->bits != NULL || bit_cnt == 0) {
             bitmap_set_all(b, false);
             return b;
@@ -102,6 +111,8 @@ bitmap_create_in_buf(size_t bit_cnt, void *block, size_t block_size UNUSED)
 
     b->bit_cnt = bit_cnt;
     b->bits = (elem_type *)(b + 1);
+    b->palloc_mode = 0;
+    b->next_fit_start = 0;
     bitmap_set_all(b, false);
     return b;
 }
@@ -280,15 +291,56 @@ bool bitmap_all(const struct bitmap *b, size_t start, size_t cnt)
 size_t
 bitmap_scan(const struct bitmap *b, size_t start, size_t cnt, bool value)
 {
+    struct bitmap* temp = (struct bitmap*)b;
     ASSERT(b != NULL);
     ASSERT(start <= b->bit_cnt);
-
     if (cnt <= b->bit_cnt) {
         size_t last = b->bit_cnt - cnt;
         size_t i;
-        for (i = start; i <= last; i++)
-            if (!bitmap_contains(b, i, cnt, !value))
-                return i;
+	if (b->palloc_mode == 0) {
+        	for (i = start; i <= last; i++) {
+            		if (!bitmap_contains(b, i, cnt, !value))
+                		return i;
+		}
+	}
+	else if (b->palloc_mode == 1) {
+		for (i = temp->next_fit_start; i <= last; i++) {
+			if (!bitmap_contains(b, i, cnt, !value)) {
+				temp->next_fit_start = i; 
+				return i;
+			}
+		}	
+		size_t next_fit_end = temp->next_fit_start >= last ? 0 : temp->next_fit_start;
+		for (i = 0; i <= next_fit_end && i <= last; i++) {
+			if (!bitmap_contains(b, i, cnt, !value)) {
+				temp->next_fit_start = i;
+				return i;
+			}
+		}
+	}
+	else if (b->palloc_mode == 2) {
+		size_t best_size = b->bit_cnt + 1, best_index = BITMAP_ERROR, current_size = 0, current_index = 0;
+		for (i = start; i<b->bit_cnt; i++) {
+			if (bitmap_test(b, i) == !value) {
+				if (current_size != 0 && current_size >= cnt && current_size < best_size) {
+					best_size = current_size;
+					best_index = current_index;
+				}
+				current_size = 0;
+				continue;	
+			}
+			else {
+				if (current_size == 0)
+					current_index = i;
+				current_size++;
+			}
+		}
+		if (current_size != 0 && current_size >= cnt && current_size < best_size) {
+                        best_size = current_size;
+                        best_index = current_index;
+                }
+		return best_index;
+	}
     }
     return BITMAP_ERROR;
 }
