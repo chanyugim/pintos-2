@@ -341,6 +341,21 @@ bitmap_scan(const struct bitmap *b, size_t start, size_t cnt, bool value)
                 }
 		return best_index;
 	}
+	else if (b->palloc_mode == 3) {
+		size_t k_size = 1;
+		while (k_size < cnt) {
+			k_size *= 2;
+		}
+		size_t buddy_size = k_size;
+		while (buddy_size <= b->bit_cnt) {
+			for (int i = 0; i <= b->bit_cnt - buddy_size; i += buddy_size) {
+				if (!bitmap_contains(b, i, buddy_size, !value)) {
+					return i;
+				}
+			}
+			buddy_size *= 2;
+		}
+	}
     }
     return BITMAP_ERROR;
 }
