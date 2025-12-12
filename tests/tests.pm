@@ -31,6 +31,7 @@ sub check_expected {
     my (@output) = read_text_file ("$test.output");
     common_checks ("run", @output);
     compare_output ("run", @options, \@output, $expected);
+    pass;
 }
 
 sub common_checks {

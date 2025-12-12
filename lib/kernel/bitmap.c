@@ -310,13 +310,13 @@ bitmap_scan(const struct bitmap *b, size_t start, size_t cnt, bool value)
 				return i;
 			}
 		}	
-		size_t next_fit_end = temp->next_fit_start >= last ? 0 : temp->next_fit_start;
-		for (i = 0; i <= next_fit_end && i <= last; i++) {
+		for (i = 0; i <= temp->next_fit_start && i <= last; i++) {
 			if (!bitmap_contains(b, i, cnt, !value)) {
 				temp->next_fit_start = i;
 				return i;
 			}
 		}
+		return BITMAP_ERROR; 
 	}
 	else if (b->palloc_mode == 2) {
 		size_t best_size = b->bit_cnt + 1, best_index = BITMAP_ERROR, current_size = 0, current_index = 0;
@@ -348,7 +348,7 @@ bitmap_scan(const struct bitmap *b, size_t start, size_t cnt, bool value)
 		}
 		size_t buddy_size = k_size;
 		while (buddy_size <= b->bit_cnt) {
-			for (int i = 0; i <= b->bit_cnt - buddy_size; i += buddy_size) {
+			for (size_t i = 0; i <= b->bit_cnt - buddy_size; i += buddy_size) {
 				if (!bitmap_contains(b, i, buddy_size, !value)) {
 					return i;
 				}
